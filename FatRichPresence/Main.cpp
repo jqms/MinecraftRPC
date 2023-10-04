@@ -461,8 +461,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_TRAYICON: {
 			if (lParam == WM_RBUTTONUP) {
 				HMENU hMenu = CreatePopupMenu();
-				//AppendMenu(hMenu, MF_STRING, 1, isWindowVisible ? TEXT("Hide") : TEXT("Show"));
-				AppendMenu(hMenu, MF_STRING, 1, TEXT("Exit"));
+				AppendMenu(hMenu, MF_STRING, 1, richPresenceEnabled ? TEXT("Disable") : TEXT("Enable"));
+				//AppendMenu(hMenu, MF_STRING, 2, isWindowVisible ? TEXT("Hide") : TEXT("Show"));
+				AppendMenu(hMenu, MF_STRING, 3, TEXT("Exit"));
 
 				POINT pt;
 				GetCursorPos(&pt);
@@ -475,16 +476,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		}
 
 		case WM_COMMAND: {
-			//if (wParam == 1) {
-			//	if (isWindowVisible) {
-			//		ShowWindow(hwnd, SW_HIDE);
-			//	}
-			//	else {
-			//		ShowWindow(hwnd, SW_SHOWNORMAL);
-			//	}
-			//	isWindowVisible = !isWindowVisible;
-			//}
-			/*else*/ if (wParam == 1) {
+			if (wParam == 1) {
+				richPresenceEnabled = !richPresenceEnabled;
+			}
+			else if (wParam == 2) {
+				if (isWindowVisible) {
+					ShowWindow(hwnd, SW_HIDE);
+				}
+				else {
+					ShowWindow(hwnd, SW_SHOWNORMAL);
+				}
+				isWindowVisible = !isWindowVisible;
+			}
+			else if (wParam == 3) {
 				Shell_NotifyIcon(NIM_DELETE, &nid);
 				isApplicationWantingToLive = false;
 				TerminateProcess(GetCurrentProcess(), 0);
@@ -535,7 +539,7 @@ int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) 
 	//	windowClientArea.right - windowClientArea.left,
 	//	windowClientArea.bottom - windowClientArea.top,
 	//	hwnd,
-	//	(HMENU)1,
+	//	(HMENU)3,
 	//	hInst,
 	//	NULL
 	//);
@@ -551,7 +555,7 @@ int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) 
 	//	}
 	//	return CallWindowProc(oldCheckboxWindowProcedure, hwnd, msg, wparam, lparam);
 	//	});
-	//// Show the window
+	// Show the window
 	ShowWindow(hwnd, 0);
 	MSG msg;
 	while (isApplicationWantingToLive) {
