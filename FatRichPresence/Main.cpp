@@ -6,6 +6,7 @@
 #include <Windows.h>
 #include <Psapi.h>
 #include <unordered_map>
+#include <shellapi.h>
 
 #include "Discord.h"
 #include "json.hpp"
@@ -429,44 +430,133 @@ DWORD RpcThreadFuntion(LPVOID) {
 	return 0;
 }
 
+#define WM_TRAYICON (WM_USER + 1)
+NOTIFYICONDATA nid;
+bool isWindowVisible = true;
+
+HICON hCustomIcon;
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch (msg) {
+		case WM_CREATE: {
+			hCustomIcon = (HICON)LoadImage(NULL, L"MinecraftRPCBadIcon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
+
+			if (hCustomIcon == NULL) {
+				MessageBox(NULL, L"Failed to load custom icon!", L"Error", MB_ICONERROR);
+				return -1;
+			}
+
+			nid.cbSize = sizeof(NOTIFYICONDATA);
+			nid.hWnd = hwnd;
+			nid.uID = 1;
+			nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+			nid.uCallbackMessage = WM_TRAYICON;
+			nid.hIcon = hCustomIcon;
+			lstrcpy(nid.szTip, TEXT("MCBE RPC"));
+
+			Shell_NotifyIcon(NIM_ADD, &nid);
+			break;
+		}
+
+		case WM_TRAYICON: {
+			if (lParam == WM_RBUTTONUP) {
+				HMENU hMenu = CreatePopupMenu();
+				//AppendMenu(hMenu, MF_STRING, 1, isWindowVisible ? TEXT("Hide") : TEXT("Show"));
+				AppendMenu(hMenu, MF_STRING, 1, TEXT("Exit"));
+
+				POINT pt;
+				GetCursorPos(&pt);
+
+				SetForegroundWindow(hwnd);
+				TrackPopupMenu(hMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+				DestroyMenu(hMenu);
+			}
+			break;
+		}
+
+		case WM_COMMAND: {
+			//if (wParam == 1) {
+			//	if (isWindowVisible) {
+			//		ShowWindow(hwnd, SW_HIDE);
+			//	}
+			//	else {
+			//		ShowWindow(hwnd, SW_SHOWNORMAL);
+			//	}
+			//	isWindowVisible = !isWindowVisible;
+			//}
+			/*else*/ if (wParam == 1) {
+				Shell_NotifyIcon(NIM_DELETE, &nid);
+				isApplicationWantingToLive = false;
+				TerminateProcess(GetCurrentProcess(), 0);
+			}
+			break;
+		}
+
+		case WM_DESTROY: {
+			Shell_NotifyIcon(NIM_DELETE, &nid);
+
+			isApplicationWantingToLive = false;
+			DestroyIcon(hCustomIcon);
+			TerminateProcess(GetCurrentProcess(), 0);
+			break;
+		}
+
+		default: {
+			return DefWindowProc(hwnd, msg, wParam, lParam);
+		}
+	}
+	return 0;
+}
+
 //int main() {
 int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) {
 	discordRpcThread = CreateThread(0, 0, RpcThreadFuntion, 0, 0, 0);
 
-	WNDCLASSA windowClass{};
-	windowClass.hInstance = hInst;
-	windowClass.lpfnWndProc = (WNDPROC)[](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) -> LRESULT {
-		if (msg == WM_CLOSE) {
-			DestroyWindow(hwnd);
-			isApplicationWantingToLive = false;
-			PostQuitMessage(0);
-			return 1;
-		}
-		return DefWindowProcA(hwnd, msg, wparam, lparam);
-		};
-	windowClass.lpszClassName = "Gaming";
-	windowClass.style = CS_HREDRAW | CS_VREDRAW;
-	RegisterClassA(&windowClass);
+	// Declare a window class
+	WNDCLASS wc = { 0 };
+	wc.lpfnWndProc = WndProc;
+	wc.hInstance = hInst;
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wc.lpszClassName = TEXT("MCRPCClass");
 
-	static HWND windowHandle = CreateWindowExA(0, windowClass.lpszClassName, "Minecraft RPC", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 260, 80, NULL, NULL, hInst, 0);
-	RECT windowClientArea; GetClientRect(windowHandle, &windowClientArea);
-	static HWND checkboxHandle = CreateWindowExA(0, "button", "Enable RPC", WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 0, 0, windowClientArea.right - windowClientArea.left, windowClientArea.bottom - windowClientArea.top, windowHandle, (HMENU)1, hInst, NULL);
-	CheckDlgButton(windowHandle, 1, BST_CHECKED);
+	// Register the window class
+	RegisterClass(&wc);
 
-	static WNDPROC oldCheckboxWindowProcedure = (WNDPROC)SetWindowLongPtrA(checkboxHandle, GWLP_WNDPROC, (LONG_PTR)(WNDPROC)[](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) -> LRESULT {
-		if (msg == WM_LBUTTONDOWN) {
-			CheckDlgButton(GetParent(hwnd), (int)(size_t)GetMenu(hwnd), (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd)) ? BST_UNCHECKED : BST_CHECKED);
-			richPresenceEnabled = (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd));
-		}
-		return oldCheckboxWindowProcedure(hwnd, msg, wparam, lparam);
-		});
-
-	ShowWindow(windowHandle, nCmdShow);
-
+	// Create a window
+	HWND hwnd = CreateWindow(TEXT("MCRPCClass"), TEXT("MCBE RPC"), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 260, 80, NULL, NULL, hInst, NULL);
+	//RECT windowClientArea;
+	//GetClientRect(hwnd, &windowClientArea);
+	//HWND checkboxHandle = CreateWindowExA(
+	//	0, "button", "Enable RPC",
+	//	WS_VISIBLE | WS_CHILD | BS_CHECKBOX,
+	//	0, 0,
+	//	windowClientArea.right - windowClientArea.left,
+	//	windowClientArea.bottom - windowClientArea.top,
+	//	hwnd,
+	//	(HMENU)1,
+	//	hInst,
+	//	NULL
+	//);
+	//
+	//// Set the checkbox state to checked
+	//CheckDlgButton(hwnd, 1, BST_CHECKED);
+	//
+	//// Set up a custom message handler for the checkbox
+	//static WNDPROC oldCheckboxWindowProcedure = (WNDPROC)SetWindowLongPtrA(checkboxHandle, GWLP_WNDPROC, (LONG_PTR)(WNDPROC)[](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) -> LRESULT {
+	//	if (msg == WM_LBUTTONDOWN) {
+	//		CheckDlgButton(GetParent(hwnd), (int)(size_t)GetMenu(hwnd), (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd)) ? BST_UNCHECKED : BST_CHECKED);
+	//		richPresenceEnabled = (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd));
+	//	}
+	//	return CallWindowProc(oldCheckboxWindowProcedure, hwnd, msg, wparam, lparam);
+	//	});
+	//// Show the window
+	ShowWindow(hwnd, 0);
 	MSG msg;
 	while (isApplicationWantingToLive) {
 		while (PeekMessageA(&msg, 0, 0, 0, 1)) {
-			if (msg.message == WM_CLOSE) PostQuitMessage(0);
+			if (msg.message == WM_CLOSE) TerminateProcess(GetCurrentProcess(), 0);
 			if (msg.message == WM_QUIT)  break;
 			TranslateMessage(&msg);
 			DispatchMessageA(&msg);
@@ -474,7 +564,6 @@ int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) 
 		Sleep(200);
 	}
 
-	UnregisterClassA(windowClass.lpszClassName, hInst);
 	TerminateThread(minecraftStateThread, 0);
 	if (WaitForSingleObject(discordRpcThread, 5000) == WAIT_TIMEOUT)
 		TerminateThread(discordRpcThread, 0);
