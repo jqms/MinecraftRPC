@@ -435,16 +435,14 @@ NOTIFYICONDATA nid;
 bool isWindowVisible = true;
 
 HICON hCustomIcon;
-
+#include "resource.h"
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
 		case WM_CREATE: {
-			hCustomIcon = (HICON)LoadImage(NULL, L"MinecraftRPCBadIcon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE);
-
-			if (hCustomIcon == NULL) {
-				MessageBox(NULL, L"Failed to load custom icon!", L"Error", MB_ICONERROR);
-				return -1;
-			}
+			//if (hCustomIcon == NULL) {
+			//	MessageBox(NULL, L"Failed to load custom icon!", L"Error", MB_ICONERROR);
+			//	return -1;
+			//}
 
 			nid.cbSize = sizeof(NOTIFYICONDATA);
 			nid.hWnd = hwnd;
@@ -515,7 +513,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 //int main() {
 int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) {
 	discordRpcThread = CreateThread(0, 0, RpcThreadFuntion, 0, 0, 0);
-
+	hCustomIcon = (HICON)LoadIcon(hInst, MAKEINTRESOURCE(IDI_ICON1));
 	// Declare a window class
 	WNDCLASS wc = { 0 };
 	wc.lpfnWndProc = WndProc;
