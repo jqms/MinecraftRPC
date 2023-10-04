@@ -3,6 +3,7 @@
 #include "RPC/discord_rpc.h"
 #include "Discord.h"
 #include <Windows.h>
+#include <unordered_map>
 
 void Discord::Handle_Ready(const DiscordUser* request) {
 	IsReady = true;
@@ -53,12 +54,14 @@ void Discord::setStartTime(time_t time) {
 	applicationStartTime = time;
 }
 
-void Discord::update(const std::string& State, const std::string& Details) {
+void Discord::update(const std::string& State, const std::string& Details, const std::string& smallImageKey, const std::string& smallImageText) {
 	DiscordRichPresence rpc;
 	memset(&rpc, 0, sizeof(rpc));
 	rpc.startTimestamp = applicationStartTime;
 	rpc.largeImageKey = "logo";
-
+	rpc.largeImageText = "discord.gg/onixclient";
+	rpc.smallImageKey = smallImageKey.c_str();
+	rpc.smallImageText = smallImageText.c_str();
 
 	rpc.state = State.c_str();
 	rpc.details = Details.c_str();

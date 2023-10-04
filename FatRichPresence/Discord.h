@@ -16,5 +16,5 @@ public:
 	static void start(const std::string& ApplicationIdentifier);
 	static void restart(const std::string& ApplicationIdentifier);
 	static void setStartTime(time_t time);
-	static void update(const std::string& State, const std::string& Details);
+	static void update(const std::string& State, const std::string& Details, const std::string& smallImageKey = {}, const std::string& smallImageText = {});
 };

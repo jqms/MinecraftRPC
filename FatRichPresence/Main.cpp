@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <Windows.h>
 #include <Psapi.h>
+#include <unordered_map>
 
 #include "Discord.h"
 #include "json.hpp"
@@ -116,7 +117,7 @@ struct WatchedPath {
 	std::string getContent() { return readFile(path); }
 
 	void operator=(const std::string& Path) { new(this) WatchedPath(Path); }
-	operator std::string&() { return this->path; }
+	operator std::string& () { return this->path; }
 	std::string& operator*() { return this->path; }
 	std::string operator+ (const std::string& rhs) const { return this->path + rhs; }
 	std::string operator+=(const std::string& rhs) { return this->path += rhs; }
@@ -175,9 +176,7 @@ void InitPaths() {
 	filePaths.add(gameModePath);
 }
 
-
-
-const char* ServersJson = 
+const char* ServersJson =
 R"({"list":[
 	{
 	  "name":"The Hive",
@@ -206,7 +205,7 @@ struct MinecraftServer {
 	std::string applicationId;
 	std::vector<std::string> ips;
 };
-MinecraftServer noServerRPC = {"Minecraft", "992508263780335697"};
+MinecraftServer noServerRPC = { "Minecraft", "992508263780335697" };
 std::vector<MinecraftServer> servers;
 
 void InitServers() {
@@ -263,17 +262,89 @@ DWORD TrackMinecraftOpenState(LPVOID) {
 						CloseHandle(hProcess);
 						IsMinecraftOpenedNow = false;
 						break;
-					}else
+					}
+					else
 						CloseHandle(hProcess);
 				}
 			}
 			delete[] PidList;
-		} else {
+		}
+		else {
 			while (!isMinecraftOpen_Slow(1)) Sleep(200);
 			IsMinecraftOpenedNow = true;
 		}
 	}
 	return 0;
+}
+
+std::vector <std::pair<std::string, std::string>> formattedHiveGamemodes = {
+	{"Block Drop",	    "hive_drop"},
+	{"Capture The Flag","hive_ctf"},
+	{"The Bridge",      "hive_bridge"},
+	{"Ground Wars",     "hive_ground"},
+	{"Survival Games",  "hive_sg"},
+	{"Murder Mystery",  "hive_murder"},
+	{"Treasure Wars",   "hive_wars"},
+	{"Skywars",         "hive_sky"},
+	{"Skywars Kits",    "hive_sky-kits"},
+	{"Just Build",      "hive_build"},
+	{"Hide And Seek",   "hive_hide"},
+	{"Death Run",       "hive_dr"},
+	{"Hub",             "hive_hub"},
+	{"Replay",			"hive_replay"},
+	{"Block Party",		"hive_party"},
+	{"Gravity",			"hive_grav"},
+};
+
+std::vector <std::pair<std::string, std::string>> formattedZeqaGamemodes = {
+	{"Archer",		 "zeqa_archer"},
+	{"BattleRush",	 "zeqa_battlerush"},
+	{"BedFight",	 "zeqa_bedfight"},
+	{"Boxing",		 "zeqa_boxing"},
+	{"Bridge",		 "zeqa_bridge"},
+	{"BuildUHC",	 "zeqa_build"},
+	{"Classic",		 "zeqa_classicduels"},
+	{"Combo",		 "zeqa_combo"},
+	{"FinalUHC",	 "zeqa_finaluhc"},
+	{"FireballFight","zeqa_fireballfight"},
+	{"Fist",		 "zeqa_fist"},
+	{"Gapple",		 "zeqa_gapple"},
+	{"MLGRush",		 "zeqa_mlgrush"},
+	{"Nodebuff",	 "zeqa_nodebuff"},
+	{"PearlFight",	 "zeqa_pearlfight"},
+	{"Skywars",		 "zeqa_skywars"},
+	{"Soup",		 "zeqa_soup"},
+	{"Spleef",		 "zeqa_spleef"},
+	{"StickFight",	 "zeqa_stickfight"},
+	{"Sumo",		 "zeqa_sumo"},
+};
+
+std::string getUglyGamemodeName(const std::string& server, const std::string& prettyString) {
+	std::vector <std::pair<std::string, std::string>>* vec = nullptr;
+	if (server.find("The Hive") != std::string::npos)
+		vec = &formattedHiveGamemodes;
+	else if (server.find("Zeqa") != std::string::npos)
+	vec = &formattedZeqaGamemodes;
+	if (vec == nullptr) return {};
+	for (const auto& [formatted, unformatted] : *vec) {
+		if (prettyString.find(formatted) != std::string::npos)
+			return unformatted;
+	}
+	return {};
+}
+
+std::string getPrettyGamemodeName(const std::string& server, const std::string& prettyString) {
+	std::vector <std::pair<std::string, std::string>>* vec = nullptr;
+	if (server.find("The Hive") != std::string::npos)
+		vec = &formattedHiveGamemodes;
+	else if (server.find("Zeqa") != std::string::npos)
+		vec = &formattedZeqaGamemodes;
+	if (vec == nullptr) return {};
+	for (const auto& [formatted, unformatted] : *vec) {
+		if (prettyString.find(formatted) != std::string::npos)
+			return formatted;
+	}
+	return {};
 }
 
 DWORD RpcThreadFuntion(LPVOID) {
@@ -347,8 +418,9 @@ DWORD RpcThreadFuntion(LPVOID) {
 
 			if (mcserver->name == noServerRPC.name && mcserver->applicationId == noServerRPC.applicationId)
 				Discord::update(serverIp.empty() ? "In the menus" : strstr(serverIp.c_str(), "n a World") != nullptr ? "In a World" : "On a Server", usernameMode);
-			else
-				Discord::update(gamingMode, usernameMode);
+			else {
+				Discord::update(gamingMode, usernameMode, getUglyGamemodeName(mcserver->name, gamingMode), getPrettyGamemodeName(mcserver->name, gamingMode));
+			}
 		}
 		Sleep(1000);
 		forceReUpdate = false;
@@ -360,7 +432,7 @@ DWORD RpcThreadFuntion(LPVOID) {
 //int main() {
 int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) {
 	discordRpcThread = CreateThread(0, 0, RpcThreadFuntion, 0, 0, 0);
-	
+
 	WNDCLASSA windowClass{};
 	windowClass.hInstance = hInst;
 	windowClass.lpfnWndProc = (WNDPROC)[](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) -> LRESULT {
@@ -371,24 +443,24 @@ int WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR args, int nCmdShow) 
 			return 1;
 		}
 		return DefWindowProcA(hwnd, msg, wparam, lparam);
-	};
+		};
 	windowClass.lpszClassName = "Gaming";
 	windowClass.style = CS_HREDRAW | CS_VREDRAW;
 	RegisterClassA(&windowClass);
 
 	static HWND windowHandle = CreateWindowExA(0, windowClass.lpszClassName, "Minecraft RPC", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 260, 80, NULL, NULL, hInst, 0);
 	RECT windowClientArea; GetClientRect(windowHandle, &windowClientArea);
-	static HWND checkboxHandle = CreateWindowExA(0, "button", "Enable RPC", WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 0, 0, windowClientArea.right - windowClientArea.left, windowClientArea.bottom -windowClientArea.top, windowHandle, (HMENU)1, hInst, NULL);
+	static HWND checkboxHandle = CreateWindowExA(0, "button", "Enable RPC", WS_VISIBLE | WS_CHILD | BS_CHECKBOX, 0, 0, windowClientArea.right - windowClientArea.left, windowClientArea.bottom - windowClientArea.top, windowHandle, (HMENU)1, hInst, NULL);
 	CheckDlgButton(windowHandle, 1, BST_CHECKED);
 
 	static WNDPROC oldCheckboxWindowProcedure = (WNDPROC)SetWindowLongPtrA(checkboxHandle, GWLP_WNDPROC, (LONG_PTR)(WNDPROC)[](HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) -> LRESULT {
 		if (msg == WM_LBUTTONDOWN) {
-			CheckDlgButton(GetParent(hwnd), (int)(size_t)GetMenu(hwnd), (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd)) ?  BST_UNCHECKED : BST_CHECKED);
+			CheckDlgButton(GetParent(hwnd), (int)(size_t)GetMenu(hwnd), (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd)) ? BST_UNCHECKED : BST_CHECKED);
 			richPresenceEnabled = (bool)IsDlgButtonChecked(GetParent(hwnd), (int)(size_t)GetMenu(hwnd));
 		}
-			return oldCheckboxWindowProcedure(hwnd, msg, wparam, lparam);
+		return oldCheckboxWindowProcedure(hwnd, msg, wparam, lparam);
 		});
-	
+
 	ShowWindow(windowHandle, nCmdShow);
 
 	MSG msg;
