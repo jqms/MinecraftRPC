@@ -295,6 +295,7 @@ std::vector <std::pair<std::string, std::string>> formattedHiveGamemodes = {
 	{"Replay",			"hive_replay"},
 	{"Block Party",		"hive_party"},
 	{"Gravity",			"hive_grav"},
+	{"Ghost Invasion",  "hive_gi"}
 };
 
 std::vector <std::pair<std::string, std::string>> formattedZeqaGamemodes = {
